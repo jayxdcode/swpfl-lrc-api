@@ -4,6 +4,12 @@ Simple FastAPI wrapper around the `syncedlyrics` package. It exposes a `/search`
 
 This repo is intended to be deployed to Render (https://render.com).
 
+## 🚀 One-Click Deploy
+
+Click the button below to deploy this API instantly on [Render](https://render.com):
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
 ## Endpoints
 
 ### `GET /`
