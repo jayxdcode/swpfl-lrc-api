@@ -24,7 +24,7 @@ async def root():
 
 @app.get("/search", response_model=SearchResult)
 async def search(
-	query: str = Query(..., description="The song query to search for."),
+	q: str = Query(..., description="The song query to search for."),
 	trLang: Optional[str] = Query(None, description="ISO 639-1 translation language code (e.g., 'en', 'fr')."),
 	providers: Optional[List[str]] = Query(None, description="List of providers to query. Automatically chosen if not provided."),
 	synced: Optional[bool] = Query(True, description="Whether to search for synced lyrics (default True)."),
@@ -35,13 +35,20 @@ async def search(
 	"""
 	try:
 		lrc = syncedlyrics.search(
-			query,
+	        q,
+		    lang=trLang,
+		    providers=providers
+			synced-only=True
+			enhanced=enhanced
+		) if synced else syncedlyrics.search(
+			q,
 			lang=trLang,
 			providers=providers,
-			synced=synced,
-			enhanced=enhanced
+			plain-only=True,
+		    enhanced=enhanced
 		)
 		return {
+			"status": 200,
 			"query": query,
 			"trLang": trLang,
 			"providers": providers,
