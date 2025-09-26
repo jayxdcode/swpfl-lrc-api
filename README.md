@@ -51,12 +51,18 @@ curl "https://your-service.onrender.com/search?q=Mabataki%20Vaundy&providers=Mus
 #### Example Response
 ```json
 {
-  "query": "Mabataki  Vaundy",
-  "trLang": "en",
-  "providers": ["Musixmatch", "Lrclib"],
+  "status": 200,
+  "query": "Mabataki Vaundy",
   "synced": true,
-  "enhanced": true,
-  "lrc": "[00:00.00] Sample lyric line ..."
+  "enhanced": false,
+  "used_provider": "Lrclib",
+  "provider_logs": [
+    "DEBUG:syncedlyrics:Looking for an LRC on Musixmatch",
+    "DEBUG:syncedlyrics:No suitable lyrics found on Musixmatch, continuing search...",
+    "DEBUG:syncedlyrics:Looking for an LRC on Lrclib",
+    "INFO:syncedlyrics:Lyrics found for \"mabataki\" on Lrclib"
+  ],
+  "lrc": "[00:06.16] ..."
 }
 ```
 
