@@ -53,3 +53,14 @@ curl "https://your-service.onrender.com/search?query=Mabataki%20Vaundy&providers
   "lrc": "[00:00.00] Sample lyric line ..."
 }
 ```
+
+## 🧰 Modules Used
+
+This project wouldn’t be possible without these amazing open-source libraries:
+
+- [**FastAPI**](https://fastapi.tiangolo.com/) — for building the web API quickly and efficiently.
+- [**Uvicorn**](https://www.uvicorn.org/) — lightning-fast ASGI server to run the FastAPI app.
+- [**HTTPX**](https://www.python-httpx.org/) — modern async HTTP client used for self-pinging.
+- [**syncedlyrics**](https://pypi.org/project/syncedlyrics/) — the core library that powers lyric searches across multiple providers.
+
+🙏 Huge thanks to the developers and contributors of these tools!
