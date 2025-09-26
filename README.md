@@ -8,7 +8,7 @@ This repo is intended to be deployed to Render (https://render.com).
 
 Click the button below to deploy this API instantly on [Render](https://render.com):
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fjayxdcode%2Fswpfl-lrc-api)
 
 ## Endpoints
 
