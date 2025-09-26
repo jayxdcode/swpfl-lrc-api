@@ -21,7 +21,7 @@ Search for lyrics.
 #### Query Parameters
 | Name | Type | Required | Description |
 |------|------|-----------|-------------|
-| `query` | `str` | ✅ | The song query to search for. |
+| `q` | `str` | ✅ | The song query to search for. |
 | `trLang` | `str` | ⛔ | ISO 639-1 translation language code (e.g., `en`, `fr`). |
 | `providers` | `list[str]` | ⛔ | List of providers to query. Automatically chosen if not provided. |
 | `synced` | `bool` | ⛔ | Whether to search for synced lyrics. Defaults to `True`. |
@@ -39,13 +39,13 @@ Search for lyrics.
 #### Example Requests
 ```bash
 # Simple search
-curl "https://your-service.onrender.com/search?query=Mabataki%20Vaundy"
+curl "https://your-service.onrender.com/search?q=Mabataki%20Vaundy"
 
 # Search with translation
-curl "https://your-service.onrender.com/search?query=Mabataki%20Vaundy&trLang=en"
+curl "https://your-service.onrender.com/search?q=Mabataki%20Vaundy&trLang=en"
 
 # Specify providers and enhanced search
-curl "https://your-service.onrender.com/search?query=Mabataki%20Vaundy&providers=Musixmatch&providers=Lrclib&enhanced=true"
+curl "https://your-service.onrender.com/search?q=Mabataki%20Vaundy&providers=Musixmatch&providers=Lrclib&enhanced=true"
 ```
 
 #### Example Response
