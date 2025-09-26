@@ -37,8 +37,8 @@ async def search(
 		lrc = syncedlyrics.search(
 	        q,
 		    lang=trLang,
-		    providers=providers
-			synced-only=True
+		    providers=providers,
+			synced-only=True,
 			enhanced=enhanced
 		) if synced else syncedlyrics.search(
 			q,
