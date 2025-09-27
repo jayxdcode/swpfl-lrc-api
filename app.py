@@ -129,10 +129,10 @@ async def search(
 			plainTr.append(tr_text)
 
 	v2 = {
-		"syncedLrc": syncedLrc or None,
-		"plainLyrics": plainLyrics or None,
-		"syncedTr": syncedTr or None,
-		"plainTr": plainTr or None,
+		"syncedLrc": "\n".join(syncedLrc) or None,
+		"plainLyrics": "\n".join(plainLyrics) or None,
+		"syncedTr": "\n".join(syncedTr) or None,
+		"plainTr": "\n".join(plainTr) or None,
 	}
 
 	return {
