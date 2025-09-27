@@ -5,7 +5,6 @@ import os
 import asyncio
 import httpx
 import re
-import json
 
 app = FastAPI()
 
@@ -18,6 +17,8 @@ class SearchResult(BaseModel):
 	lrc: Optional[str] = None
 	used_provider: Optional[str] = None
 	provider_logs: Optional[List[str]] = None
+	translated: Optional[bool] = False
+	v2: Optional[dict] = None
 
 
 @app.get("/")
@@ -27,22 +28,29 @@ async def root():
 
 @app.get("/search", response_model=SearchResult)
 async def search(
-	q: str = Query(..., description="The song query to search for."),
+	q: Optional[str] = Query(None, description="The song query to search for."),
 	trLang: Optional[str] = Query(None, description="ISO 639-1 translation language code (e.g., 'en', 'fr')."),
 	providers: Optional[List[str]] = Query(None, description="List of providers to query. Automatically chosen if not provided."),
 	synced: Optional[bool] = Query(True, description="Whether to search for synced lyrics (default True)."),
 	enhanced: Optional[bool] = Query(False, description="Whether to search for word-level karaoke format (default False).")
 ):
 	"""
-	Search using syncedlyrics CLI with verbose (-v) logs internally to detect which provider worked.
-	Example: GET /search?q=Mabataki%20Vaundy
+	Search lyrics using syncedlyrics CLI with verbose logs.
+	Includes fallback for translation failure, structured outputs, and provider detection.
 	"""
-	try:
-		# Build CLI command
-		cmd = ["syncedlyrics", "-v", q]
-		
-		if trLang:
-			cmd += ["--lang", trLang]
+
+	# 🧱 1. Validate query
+	if not q:
+		raise HTTPException(status_code=422, detail={
+			"error": "Missing required query parameter 'q'.",
+			"required_params": ["q {str}"],
+			"optional_params": ["trLang {str, ISO 639-1 code}", "providers {list[str]}", "synced {bool}", "enhanced {bool}"]
+		})
+
+	async def run_cli(query: str, lang: Optional[str] = None):
+		cmd = ["syncedlyrics", "-v", query]
+		if lang:
+			cmd += ["--lang", lang]
 		if providers:
 			for p in providers:
 				cmd += ["--provider", p]
@@ -53,45 +61,93 @@ async def search(
 		if enhanced:
 			cmd += ["--enhanced"]
 
-		# Run subprocess silently but capture logs
 		process = await asyncio.create_subprocess_exec(
 			*cmd,
 			stdout=asyncio.subprocess.PIPE,
 			stderr=asyncio.subprocess.PIPE
 		)
-
 		stdout, stderr = await process.communicate()
-
 		stdout_text = stdout.decode().strip()
 		stderr_text = stderr.decode().strip()
 
-		# Extract provider logs
-		provider_logs = re.findall(r"(DEBUG|INFO):syncedlyrics:[^\n]+", stderr_text)
-		used_provider = None
-		for line in provider_logs:
-			if "Lyrics found for" in line:
-				match = re.search(r'on (\w+)', line)
-				if match:
-					used_provider = match.group(1)
+		# 🔍 print to console for monitoring
+		if stderr_text:
+			print(f"[syncedlyrics -v logs for '{query}']:\n{stderr_text}")
 
-		# Handle failure
+		return stdout_text, stderr_text
+
+	# 🌀 2. Try with translation first (if supplied)
+	stdout_text = ""
+	stderr_text = ""
+	if trLang:
+		stdout_text, stderr_text = await run_cli(q, trLang)
 		if not stdout_text:
-			raise Exception("No lyrics found or CLI failed.")
+			print(f"[fallback] No results with translation '{trLang}', retrying without translation...")
+			stdout_text, stderr_text = await run_cli(q)
+	else:
+		stdout_text, stderr_text = await run_cli(q)
 
-		return {
-			"status": 200,
-			"query": q,
-			"trLang": trLang,
-			"providers": providers,
-			"synced": bool(re.search(r"\[\d.*?\]", stdout_text)),
-			"enhanced": bool(re.search(r"\<\d.*?\>", stdout_text)),
-			"lrc": stdout_text,
-			"used_provider": used_provider,
-			"provider_logs": provider_logs,
-		}
+	if not stdout_text:
+		raise HTTPException(status_code=404, detail=f"No lyrics found for '{q}'")
 
-	except Exception as e:
-		raise HTTPException(status_code=500, detail=str(e))
+	# 🧠 3. Extract provider info from logs
+	provider_logs = re.findall(r"(DEBUG|INFO):syncedlyrics:[^\n]+", stderr_text)
+	used_provider = None
+	for line in stderr_text.splitlines():
+		if "Lyrics found for" in line:
+			match = re.search(r'on (\w+)', line)
+			if match:
+				used_provider = match.group(1)
+				break
+
+	# 🈶 4. Parse translations
+	lines = stdout_text.splitlines()
+	translated = any(re.search(r"^\(.*\)$", line.strip()) for line in lines)
+	if translated and not used_provider:
+		used_provider = "Musixmatch"  # only Musixmatch has translations
+
+	# 🧩 5. Build v2 breakdowns
+	syncedLrc = []
+	plainLyrics = []
+	syncedTr = []
+	plainTr = []
+
+	prev_time = None
+	for line in lines:
+		line = line.strip()
+		# detect synced line
+		time_match = re.match(r"^\[(.*?)\]\s*(.*)", line)
+		if time_match:
+			prev_time = time_match.group(1)
+			text = time_match.group(2)
+			syncedLrc.append(f"[{prev_time}] {text}")
+			plainLyrics.append(text)
+		elif re.match(r"^\(.*\)$", line):
+			tr_text = line.strip("()")
+			if prev_time:
+				syncedTr.append(f"[{prev_time}] {tr_text}")
+			plainTr.append(tr_text)
+
+	v2 = {
+		"syncedLrc": syncedLrc or None,
+		"plainLyrics": plainLyrics or None,
+		"syncedTr": syncedTr or None,
+		"plainTr": plainTr or None,
+	}
+
+	return {
+		"status": 200,
+		"query": q,
+		"trLang": trLang,
+		"providers": providers,
+		"synced": bool(re.search(r"\[\d.*?\]", stdout_text)),
+		"enhanced": bool(re.search(r"\<\d.*?\>", stdout_text)),
+		"lrc": stdout_text,
+		"used_provider": used_provider,
+		"provider_logs": provider_logs,
+		"translated": translated,
+		"v2": v2
+	}
 
 
 @app.get("/_ping")
