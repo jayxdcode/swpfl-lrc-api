@@ -101,16 +101,17 @@ async def search(
 			"optional_params": ["trLang {str, ISO 639-1 code}", "providers {str, space-separated}", "synced {bool}", "enhanced {bool}"]
 		})
 
+	validated_providers = None
 	# 2. Validate providers
 	if providers:
-		validate_providers(providers)
+		validated_providers = validate_providers(providers)
  
 	async def run_cli(query: str, lang: Optional[str] = None):
 		cmd = ["syncedlyrics", "-v", query]
 		if lang:
-			cmd += ["--lang", lang]
-		if providers:
-			cmd += ["--providers", providers]
+			cmd += ["-l", lang]
+		if validated_providers:
+			cmd += ["-p", validated_providers]
 		if synced:
 			cmd += ["--synced-only"]
 		else:
