@@ -11,7 +11,7 @@ app = FastAPI()
 class SearchResult(BaseModel):
 	query: str
 	trLang: Optional[str] = None
-	providers: Optional[List[str]] = None
+	providers: Optional[str] = None
 	synced: Optional[bool] = True
 	enhanced: Optional[bool] = False
 	lrc: Optional[str] = None
@@ -20,6 +20,60 @@ class SearchResult(BaseModel):
 	translated: Optional[bool] = False
 	v2: Optional[dict] = None
 
+
+def validate_providers(providers_str: str) -> str:
+    """
+    Validates a space-separated string of provider short codes and
+    returns a space-separated string of their full names.
+
+    Raises HTTPException (422) if any short code is invalid.
+    """
+    
+    # Mapping of short code to full name
+    provider_map = {
+        "m": "Musixmatch",
+        "Musixmatch": "Musixmatch", # Include full name as a valid input alias
+        "l": "Lrclib",
+        "Lrclib": "Lrclib",
+        "n": "NetEase",
+        "NetEase": "NetEase",
+        "mg": "Megalobiz",
+        "Megalobiz": "Megalobiz",
+        "g": "Genius",
+        "Genius": "Genius"
+    }
+
+    # The set of all valid input keys (short codes and full names)
+    valid_set = set(provider_map.keys())
+
+    # Convert string to list/set by splitting on whitespace
+    requested_providers = set(providers_str.split()) 
+    
+    # Find items in requested_providers that are NOT in valid_set
+    invalid_providers = requested_providers - valid_set
+
+    if invalid_providers:
+        # Raise HTTPException on failure
+        # For a clearer error message, we provide a list of accepted *short codes* # and full names for reference, extracted from the map keys.
+        accepted_codes_and_names = sorted(list(valid_set))
+        
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "invalid provider(s) detected",
+                "invalid_providers": list(invalid_providers),
+                "valid_inputs": accepted_codes_and_names
+            }
+        )
+    
+    # Map the valid requested short codes/full names to their canonical full names
+    full_names = [provider_map[code] for code in requested_providers]
+    
+    # Return a space-separated string of the unique full names
+    # Using 'set' ensures no duplicates if a user inputs both 'm' and 'Musixmatch'
+    # and then joining them with a space.
+    return " ".join(sorted(list(set(full_names))))
+	
 
 @app.get("/")
 async def root():
@@ -30,7 +84,7 @@ async def root():
 async def search(
 	q: Optional[str] = Query(None, description="The song query to search for."),
 	trLang: Optional[str] = Query(None, description="ISO 639-1 translation language code (e.g., 'en', 'fr')."),
-	providers: Optional[List[str]] = Query(None, description="List of providers to query. Automatically chosen if not provided."),
+	providers: Optional[str] = Query(None, description="List of providers to query (separated by spaces). Automatically chosen if not provided."),
 	synced: Optional[bool] = Query(True, description="Whether to search for synced lyrics (default True)."),
 	enhanced: Optional[bool] = Query(False, description="Whether to search for word-level karaoke format (default False).")
 ):
@@ -44,16 +98,19 @@ async def search(
 		raise HTTPException(status_code=422, detail={
 			"error": "Missing required query parameter 'q'.",
 			"required_params": ["q {str}"],
-			"optional_params": ["trLang {str, ISO 639-1 code}", "providers {list[str]}", "synced {bool}", "enhanced {bool}"]
+			"optional_params": ["trLang {str, ISO 639-1 code}", "providers {str, space-separated}", "synced {bool}", "enhanced {bool}"]
 		})
 
+	# 2. Validate providers
+	if providers:
+		validate_providers(providers)
+ 
 	async def run_cli(query: str, lang: Optional[str] = None):
 		cmd = ["syncedlyrics", "-v", query]
 		if lang:
 			cmd += ["--lang", lang]
 		if providers:
-			for p in providers:
-				cmd += ["--provider", p]
+			cmd += ["--providers", providers]
 		if synced:
 			cmd += ["--synced-only"]
 		else:
@@ -93,7 +150,7 @@ async def search(
 	# 🧠 3. Extract provider info from logs
 	provider_logs = re.findall(r"(DEBUG|INFO):syncedlyrics:[^\n]+", stderr_text)
 	used_provider = None
-	for line in stderr_text.splitlines():
+	for line in stdout_text.splitlines():
 		if "Lyrics found for" in line:
 			match = re.search(r'on (\w+)', line)
 			if match:
