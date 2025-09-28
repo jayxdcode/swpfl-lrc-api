@@ -72,7 +72,7 @@ def validate_providers(providers_str: str) -> str:
     # Return a space-separated string of the unique full names
     # Using 'set' ensures no duplicates if a user inputs both 'm' and 'Musixmatch'
     # and then joining them with a space.
-    return " ".join(sorted(list(set(full_names))))
+    return list(set(full_names))
 	
 
 @app.get("/")
@@ -111,7 +111,7 @@ async def search(
 		if lang:
 			cmd += ["-l", lang]
 		if validated_providers:
-			cmd += ["-p", validated_providers]
+			cmd += ["-p", *validated_providers]
 		if synced:
 			cmd += ["--synced-only"]
 		else:
